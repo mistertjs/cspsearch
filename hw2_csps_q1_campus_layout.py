@@ -118,7 +118,7 @@ class HW2CampusConstraint(CSPConstraint):
         
         return result
         
-    def checkBinaryConstaint(self, head, tail, assignments):
+    def checkBinaryComplete(self, head, tail, assignments):
         '''
         Checks all values of tail assignments relative to the head. All valid
         assignments will go into the validValue list. All invalid values go
@@ -162,42 +162,43 @@ class HW2CampusConstraint(CSPConstraint):
           checkAdjacentVariables(head, tail, assignments, 
                                  validValues, invalidValues)
                         
-        return [validValues, invalidValues]
+        return len(invalidValues) == 0
         
-
-'''            
-rootNode = '11'
-domain = ['r','g','b','w']
-edges = [('11','12'),('11','21'),('12','22'),('12','13'),
-         ('13','23'),('13','Road'),('21','22'),('22','23'),('23','Road')]
-colors = domain
-'''
-'''
-rootNode = 'WA'
-domain = ['b','r','g']    
-edges = [('WA','NT'),('WA','SA'),('NT','SA'),('NT','Q'),
-        ('SA','Q'),('SA','NSW'),('SA','V'),('Q','NSW'),('T','T')]
-colors = domain
-'''
+        def checkBinaryConsistent(self, head, headValue, tail, tailValue):
+            return True
+            
 rootNode = 'A'
 domain = ['11','12','13','21','22','23']
+colors = ['b','g','r','c','m','y']
 edges = [('A','B'),('A','C'),('A','D'),
          ('B','C'),('B','D'),
          ('C','D')]
 colors = None
 
-# IMPORTANT...W needs to be a DiGraph, if you want the rootNode to be searched
-# for, otherwise you have to specify it
+# create graph from edges
 G=nx.Graph()
-G.add_edges_from(edges)  
-# add assignments to each
+G.add_edges_from(edges)
 
 # get constraint
 constraint = HW2CampusConstraint(G)
-bk = CSPBacktracking(G, domain, constraint)
-result, assignments = bk.backtrackingSearch(rootNode)
-print result, assignments
-bk.plotGraph(G,colors=colors)
+bk = CSPBacktracking(G, domain, rootNode='A', 
+                     cspConstraint=constraint)
+assignments = bk.backtrackingSearch(rootNode)
+# print results and show graph
+if (assignments is not None):
+    print "Successfully solved CSP!"
+    print assignments
+    # map colors
+    for node in G.nodes():
+        value = assignments[node]
+        colorIdx = domain.index(value)
+        color = colors[colorIdx]
+        G.node[node]['color'] = color
+    # plot
+    bk.plotGraph(G, colors=colors)
+else:
+    print "Failed to solve CSP!"
+bk.printStats()
 
 '''
 ##############################################################################

@@ -20,16 +20,7 @@ import numpy as np
 import networkx as nx
 rnd = np.random
 from aisearch import AISearch
-
-class CSPConstraint(object):
-    def checkUnary(self, node, value):
-        return False
-        
-    def checkBinaryConstaint(self, head, tail, assignments):
-        return False
-        
-    def checkNnaryConstaint(self, nodes, assignments):
-        return False
+from cspconstraint import CSPConstraint
             
 class CSPAlgorithms(object):
     '''
@@ -103,12 +94,17 @@ class CSPBacktracking(AISearch):
           constraints
     '''
     
-    def __init__(self, G, domain, rootNode, cspAlgorithm=None):
+    def __init__(self, G, domain, rootNode, 
+                 cspAlgorithm=None,
+                 cspConstraint=None):
         self.G = G
         self.domain = domain
         self.rootNode = rootNode
         self.domainLen = len(domain)
         self.cspAlgorithm = cspAlgorithm
+        
+        # default constraint is 'inequality'
+        self.cspConstraint = cspConstraint
         
         self.cspStats = CSPStats()
             
@@ -128,15 +124,36 @@ class CSPBacktracking(AISearch):
         '''
         Checks if every node is assigned and assignments are valid
         '''
+        constraintCheck = {'unary':True, 'binary':True, 'knary':True}
+        
         for node in G.nodes():
             # check if node has been assigned
             if (node in assignments):
                 headValue = assignments[node]
+                
+                # check unary constraint on head
+                if (self.cspConstraint is not None):
+                    success = self.cspConstraint.checkUnary(node, headValue)
+                    constraintCheck['unary'] = success
+                    if (not success):
+                        return False
+                    
+                # check binary constraints                    
                 for neighbor in G.neighbors(node):
                     if (neighbor in assignments):
                         tailValue = assignments[neighbor]
-                        if (tailValue == headValue):
-                            return False
+                        # use inequalityconstraint if no csp constraint
+                        if (self.cspConstraint is None):
+                            if (tailValue == headValue):
+                                return False
+                        else:
+                            # use custome constraint to check binary 
+                            success = self.cspConstraint.checkBinaryComplete(
+                                node, neighbor, assignments)
+                            constraintCheck['binary'] = success
+                            if (not success):
+                                return False
+                            
                     else:
                         # neighbor is not assigned
                         return False
@@ -149,11 +166,27 @@ class CSPBacktracking(AISearch):
         '''
         Check forward the neighbors associated with the currently assigned values
         '''
+        
+        # check unary constraint on node itself
+        if (self.cspConstraint is not None):
+            success = self.cspConstraint.checkUnary(node, value)
+            if (not success):
+                return False
+                        
+        # check binary constraint of node and neighbors                        
         for neighbor in G.neighbors(node):
             if (neighbor in assignments):
                 tailValue = assignments[neighbor]
-                if (tailValue == value):
-                    return False
+                # use inequalityconstraint if no csp constraint
+                if (self.cspConstraint is None):
+                    if (tailValue == value):
+                        return False
+                else:
+                    # use custom constraint is consistent before assignment
+                    success = self.cspConstraint.checkBinaryConsistent(
+                        node, value, neighbor, tailValue)
+                    if (not success):
+                        return False
         return True
                 
     def selectUnassignedVariable(self, assignments, G):
