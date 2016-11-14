@@ -49,6 +49,7 @@ rnd = np.random
 from aisearch import AISearch
 from cspbacktracking import CSPBacktracking
 from cspbacktracking import CSPConstraint
+import csputil as cu
 
 
 class HW2CampusConstraint(CSPConstraint):
@@ -164,26 +165,26 @@ class HW2CampusConstraint(CSPConstraint):
                         
         return len(invalidValues) == 0
         
-        def checkBinaryConsistent(self, head, headValue, tail, tailValue):
-            return True
-            
+    def checkBinaryConsistent(self, head, headValue, tail, tailValue):
+        # check
+        return True
+
 rootNode = 'A'
-domain = ['11','12','13','21','22','23']
+domain = cu.getMatrixDomain(size=3,zeroIndex=False)
 colors = ['b','g','r','c','m','y']
 edges = [('A','B'),('A','C'),('A','D'),
          ('B','C'),('B','D'),
          ('C','D')]
-colors = None
 
 # create graph from edges
 G=nx.Graph()
 G.add_edges_from(edges)
 
 # get constraint
-constraint = HW2CampusConstraint(G)
+constraint = None #HW2CampusConstraint(G)
 bk = CSPBacktracking(G, domain, rootNode='A', 
                      cspConstraint=constraint)
-assignments = bk.backtrackingSearch(rootNode)
+assignments = bk.backtrackingSearch(G)
 # print results and show graph
 if (assignments is not None):
     print "Successfully solved CSP!"
