@@ -247,7 +247,7 @@ class CSPBacktracking(AISearch):
                 return node
         return None
         
-    def getNextValue(self, curValue):
+    def getNextValue(self, node, curValue):
         if (self.isFilterArcConsistency()):
             return None
             
@@ -279,7 +279,7 @@ class CSPBacktracking(AISearch):
             self.cspStats.incAssignmentCnt()
         
         # get next value in domain
-        value = self.getNextValue(None)
+        value = self.getNextValue(node, None)
         while (value is not None):
             if (self.isAssignmentConsistent(node, value, assignments, G)):
                 # add assignment
@@ -293,7 +293,7 @@ class CSPBacktracking(AISearch):
                 self.cspStats.incBacktrackingCnt()
                 
             # get next value
-            value = self.getNextValue(value)
+            value = self.getNextValue(node, value)
         # no assignment was possible, so failure
         return None
         
