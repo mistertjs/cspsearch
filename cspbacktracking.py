@@ -18,11 +18,19 @@ A∗-graph-search-with-Cost-Sensitive-Closed-Set (A∗- CSCS).
 """
 import numpy as np
 import networkx as nx
+import copy
 rnd = np.random
 from aisearch import AISearch
 from cspconstraint import CSPConstraint
             
 class CSPAlgorithms(object):
+
+    # algorithm constants
+    FILTER_FORWARD_CHECK = 'Forward Checking'
+    FILTER_ARC_CONSISTENCY = 'Arc Consistency'
+    ORDER_MRV = 'Ordering MRV'
+    ORDER_MRV_LCV = 'Ordering MRV w LCV'
+    
     '''
     This class defines the algorithm used in the backtracking search. It
     defaults to a basic backtracking search with no filtering or ordering
@@ -40,35 +48,41 @@ class CSPAlgorithms(object):
            After every assignment, you recheck the graph (neighbors)
         2. Arc consistency: 
     '''
-    def __init__(self):
+    def __init__(self, filtering=None, ordering=None):
         self.algorithm = 'Backtracking'
-        self.filtering = None
-        self.ordering = None
+        self.filtering = filtering
+        self.ordering = ordering
         
     def setForwardCheckingFilter(self):
-        self.filtering = 'Forward Checking'
+        self.filtering = self.FILTER_FORWARD_CHECK
         
     def setArcConsistencyFilter(self):
-        self.filtering = 'Arc Consistency'
+        self.filtering =  self.FILTER_ARC_CONSISTENCY
         
     def setMRVOrdering(self):
-        self.ordering = 'MRV'
+        self.ordering =  self.ORDER_MRV
 
     def setMRVwLCVOrdering(self):
-        self.ordering = 'MRV with LCV'
+        self.ordering =  self.ORDER_MRV_LCV
         
     def isForwardChecking(self):
-        return self.filtering == 'Forward Checking'
+        return self.filtering ==  self.FILTER_FORWARD_CHECK
 
     def isArcConsistency(self):
-        return self.filtering == 'Arc Consistency'
+        return self.filtering ==  self.FILTER_ARC_CONSISTENCY
 
     def isMRVOrdering(self):
-        return self.ordering == 'MRV'
+        return self.ordering ==  self.ORDER_MRV
 
     def isMRVwLCVOrdering(self):
-        return self.ordering == 'MRV with LCV'
+        return self.ordering ==  self.ORDER_MRV_LCV
     
+    def getFiltering(self):
+        return self.filtering
+        
+    def getOrdering(self):
+        return self.ordering
+        
 class CSPStats(object):
     def __init__(self):
         self.assignmentCnt = 0
@@ -101,11 +115,24 @@ class CSPBacktracking(AISearch):
         self.domain = domain
         self.rootNode = rootNode
         self.domainLen = len(domain)
+        
+        # assign default forward checking
+        if (cspAlgorithm is None):
+            cspAlgorithm = CSPAlgorithms(filtering=CSPAlgorithms.FILTER_FORWARD_CHECK)
         self.cspAlgorithm = cspAlgorithm
+
+        # using arc-consistency, now we persist the available domain values
+        # for each node
+        self.availableValues = {}
+        if (self.getFilteringType() == \
+            CSPAlgorithms.FILTER_ARC_CONSISTENCY):
+            for node in self.G.nodes():
+                self.availableValues[node] = copy.deepcopy(domain)
         
         # default constraint is 'inequality'
         self.cspConstraint = cspConstraint
         
+        # keep stats of various actions
         self.cspStats = CSPStats()
             
         # assign this once, then reuse            
@@ -114,6 +141,30 @@ class CSPBacktracking(AISearch):
     def printStats(self):
         self.cspStats.printStats()
         
+    def getAlgorithm(self):
+        return cspAlgorithm
+        
+    def getFilteringType(self):
+        if (self.cspAlgorithm is not None):
+            return self.cspAlgorithm.getFiltering()
+        return None
+
+    def isFilterForwardChecking(self):
+        return self.getFilteringType() == CSPAlgorithms.FILTER_FORWARD_CHECK
+
+    def isFilterArcConsistency(self):
+        return self.getFilteringType() == CSPAlgorithms.FILTER_ARC_CONSISTENCY
+        
+    def getOrderingAlgorithm(self):
+        if (self.cspAlgorithm is not None):
+            return self.cspAlgorithm.getOrdering()
+        return None
+        
+    def isArcConsistent(self):
+        '''
+        Checks the current assignments for arc consistency
+        '''
+
     def solve(self):
         '''
         Primary interface for running the selected algorithm and solving
@@ -196,6 +247,25 @@ class CSPBacktracking(AISearch):
                 return node
         return None
         
+    def getNextValue(self, curValue):
+        if (self.isFilterArcConsistency()):
+            return None
+            
+        '''
+        Default forward checking
+        '''
+        # first value is index=0
+        if (curValue is None):
+            return self.domain[0]
+        # else return next value
+        idx = self.domain.index(curValue)
+        # get next value if valid
+        idx += 1
+        if (idx < len(self.domain)):
+            return self.domain[idx]
+        else:
+            return None
+        
     def recursiveBacktracking(self, assignments, G):
         if (self.isAssignmentComplete(assignments, G)):
             return assignments
@@ -209,7 +279,8 @@ class CSPBacktracking(AISearch):
             self.cspStats.incAssignmentCnt()
         
         # get next value in domain
-        for value in self.domain:
+        value = self.getNextValue(None)
+        while (value is not None):
             if (self.isAssignmentConsistent(node, value, assignments, G)):
                 # add assignment
                 assignments[node] = value
@@ -221,6 +292,8 @@ class CSPBacktracking(AISearch):
                 assignments.pop(node)
                 self.cspStats.incBacktrackingCnt()
                 
+            # get next value
+            value = self.getNextValue(value)
         # no assignment was possible, so failure
         return None
         
