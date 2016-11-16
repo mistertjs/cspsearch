@@ -204,6 +204,18 @@ class CSPBacktracking(AISearch):
         '''
         Checks if every node is assigned and assignments are valid
         '''
+        
+        if (self.isFilterArcConsistency()):
+            # check if assignments are available for every node, if so
+            # arc consistency guarantees validity
+            for node in G.nodes():
+                # check if node has been assigned
+                if (node not in assignments):
+                    return False
+            # all nodes assigned, return True
+            return True
+
+            
         constraintCheck = {'unary':True, 'binary':True, 'knary':True}
         
         for node in G.nodes():
@@ -277,6 +289,7 @@ class CSPBacktracking(AISearch):
         2. For ArcConsistency, it is the node with the least number of value
            which have not already been assigned
         '''
+        '''
         if (self.isFilterArcConsistency()):
             # find the next value with the least number of assignments
             minAssignments = 10000
@@ -293,7 +306,7 @@ class CSPBacktracking(AISearch):
                 return minNode
             else:
                 return None
-        
+        '''
         # find next node not assigned                                          
         for node in self.queue:
             if (node not in assignments):
@@ -310,12 +323,10 @@ class CSPBacktracking(AISearch):
             availability list
             '''
             valueList = self.availableValues[node]
-            if (len(valueList) > 0):
-                # return the next in the list
-                value = valueList[0]
+            for value in valueList:
                 return value
-            else:
-                return None
+            # return none if none available
+            return None
             
         '''
         Default forward checking
@@ -333,16 +344,29 @@ class CSPBacktracking(AISearch):
             return None
 
     def assignValueToNode(self, node, value):
+        # assigne the value
         self.assignments[node] = value
-        # remove all entries except the selection
+
+        # remove the entry from availabel values
         if (self.isFilterArcConsistency()):
-            values = copy.deepcopy(self.availableValues[node])
-            for v in values:
-                if (v != value):
-                    self.availableValues[node].remove(v)
+            remainingValues = self.availableValues[node]
+            if (value not in remainingValues):
+                print "Removing a value ", value, " that doesn't exsit", \
+                      " for node", node
+            else:
+                remainingValues.remove(value)
+            
         # update stats
         self.cspStats.incValueAssignmentCnt()
         
+    def removeAssignment(self, node, value):
+        if (node in self.assignments):
+            self.assignments.pop(node)
+
+        # add back to available values            
+        if (self.isFilterArcConsistency()):
+            self.availableValues[node].append(value)
+            
     def recursiveBacktracking(self, assignments, G):
         '''
         Main search function, recursing through the graph and enforcing
@@ -364,21 +388,29 @@ class CSPBacktracking(AISearch):
         while (value is not None):
             if (self.isFilterArcConsistency()):
                 # assign the value first
-                prvValues = copy.deepcopy(self.availableValues[node])
+                #prvValues = copy.deepcopy(self.availableValues[node])
                 self.assignValueToNode(node, value)
                 print "Assigning node ",node," to value ",value
+
+                availableValueBackup = copy.deepcopy(self.availableValues)
+
                 # then check consistency
-                if (self.isArcConsistent(G)):
+                arcs = self.getArcQueue(G, node)
+                if (self.isArcConsistent(G, arcs)):
                     # if consistent, recurse
                     # recurse to next node
                     assignmentsResults = self.recursiveBacktracking(assignments, G)
                     if (assignmentsResults is not None):
                         return assignmentsResults
                     # if assignment from previous was bad, push back previous
-                    # assignment and try again
-                    print "Reassign values back to node ", node, prvValues
-                    self.availableValues[node] = prvValues
-                    self.cspStats.incBacktrackingCnt()
+                        
+                # redo the values
+                self.availableValues = availableValueBackup
+                # assignment and try again
+                print "Reassign values back to node ", node, value
+                # add value back to end of available values
+                self.removeAssignment(node, value)
+                self.cspStats.incBacktrackingCnt()
                 # else, try next value
             else:
                 if (self.isAssignmentConsistent(node, value, assignments, G)):
@@ -408,7 +440,13 @@ class CSPBacktracking(AISearch):
         # get the queue as DFS
         self.queue = self.dfs_recurse(G, self.rootNode, 
                                       discovery=False, sort=True)
-            # recurse and assign
+                                      
+        # check unary constraints
+        if (self.isFilterArcConsistency()):                                      
+            self.checkUnaryConstraints()
+            print self.availableValues
+            
+        # recurse and assign
         assignmentsResults = self.recursiveBacktracking(self.assignments, G)
     
         # assign to graph
@@ -419,60 +457,106 @@ class CSPBacktracking(AISearch):
         # return assignment results..None if failure
         return assignmentsResults
         
+    def checkUnaryConstraints(self):
+        for node in self.availableValues:
+            removalList = []
+            valueList = self.availableValues[node]
+            for value in valueList:
+                # check unary constraint...if valid, check binary constraint
+                if (not self.cspConstraint.checkUnary(node, value)):
+                    removalList.append(value)
+            
+            # remove violations from available values
+            for value in removalList:
+                valueList.remove(value)
+                
     def removeInconsistentValues(self, head, tail):
         '''
         Iterate through the tail and check which values are inconsitent.
         Return True if any values were removed from the tail assignment
         '''        
+        # get values either assigned, or available
+        tailAssigned = False
+        tailValues = self.availableValues[tail]
+        if (tail in self.assignments):
+            tailValues = [self.assignments[tail]]
+            tailAssigned = True
+
+        headValues = self.availableValues[head]
+        if (head in self.assignments):
+            headValues = [self.assignments[head]]
+            
         #print tail,"->",head
         removeValues = []
-        for tailValue in self.availableValues[tail]:
+        for tailValue in tailValues:
+            # if any are consistent retain it
             retain = False
-            # check unary constraint...if valid, check binary constraint
-            if (self.cspConstraint.checkUnary(tail, tailValue)):
-                # if any are consistent retain it
-                retain = False
-                for headValue in self.availableValues[head]:
-                    if (self.cspConstraint.checkBinaryConsistent(head,
-                                                                 headValue,
-                                                                 tail,
-                                                                 tailValue)):
-                        # there is a consistent constraint, so retain and move on
-                        retain = True
-                        break
+            for headValue in headValues:
+                if (self.cspConstraint.checkBinaryConsistent(head,
+                                                             headValue,
+                                                             tail,
+                                                             tailValue)):
+                    # if any constraint works, retaint it
+                    retain = True
+                    break
 
             # add inconsistent value, and remove it after iteration
             if (not retain):
                 removeValues.append(tailValue)
  
+        # check if the removed value was the assignment
+        if (tailAssigned and len(removeValues) > 0):
+            return False
+            
         # remove values from available assignments
         for value in removeValues:
             self.availableValues[tail].remove(value)
 
         # if any values were removed return true
         if (len(removeValues) > 0):
-            print "Removing from node ", tail, removeValues
+            print "Removing inconsistencies from node ", tail, removeValues
             return True
         else:
             return False
              
-    def isArcConsistent(self, G, maxIterations=-1):
+    def getArcQueue(self, G, node):
+        arcQueue = []
+        mainQueue = self.getBidirectionalArcs(G)
+        for arc in mainQueue:
+            # check if arc has node as head
+            if (arc[1] == node and arc not in arcQueue):
+                arcQueue.append(arc)
+        return arcQueue
+        
+    def isArcConsistent(self, G, arcQueue, maxIterations=-1):
         '''
         Arc consist of (tail -> head) configuration
         '''
         iterCnt = 0
-        masterArcQ = self.getBidirectionalArcs(G)
-        arcQueue = self.getBidirectionalArcs(G)
         while (len(arcQueue) > 0):
             edge = arcQueue.pop(0)
             head = edge[1]
             tail = edge[0]
             if (self.removeInconsistentValues(head, tail)):
-                 # the tail was modified, so add all arcs to the queue
+                 # if the tail was modified, add all arcs to the queue
                  # where the tail is now the head
-                for arc in masterArcQ:
-                    if (arc[1] == tail and arc not in arcQueue):
-                        arcQueue.append(arc)
+                newArcs = self.getArcQueue(G, tail)          
+                # check if new arcs have remaing values
+                hasEmptyAssignments = False
+                for arc in newArcs:
+                    node = arc[0]
+                    remaingValues = self.availableValues[node]
+                    if (len(remaingValues) == 0):
+                        hasEmptyAssignments = True
+                        
+                # check empty assignments
+                if (hasEmptyAssignments):
+                    # replace the availableAssignments
+                    print "Reset available values:", self.availableValues
+                    return False
+                # otherwise add new arcs for testing
+                arcQueue.extend(newArcs)
+                
             # if the loop never ends, stop it
             iterCnt += 1
             if (maxIterations >= 0 and iterCnt >= maxIterations):

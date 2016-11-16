@@ -23,7 +23,7 @@ from aisearch import AISearch
 from cspbacktracking import CSPBacktracking
 from cspbacktracking import CSPAlgorithms
 
-doExercise = True
+doExercise = False
         
 # generate test graph (directed lattice mxn)   
 search = AISearch()

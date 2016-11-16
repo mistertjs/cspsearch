@@ -61,10 +61,10 @@ class HW2CampusConstraint(CSPConstraint):
         Returns True if the values are adjacent (not diagonal, or same)
         '''
         # check if same row
-        row1 = value1[0]
-        row2 = value2[0]
-        col1 = value1[1]
-        col2 = value2[2]
+        row1 = int(value1[0])
+        row2 = int(value2[0])
+        col1 = int(value1[1])
+        col2 = int(value2[1])
         
         # if values are equal, return failure now, otherwise assumption can
         # be made to continue check
@@ -89,34 +89,50 @@ class HW2CampusConstraint(CSPConstraint):
     def checkUnary(self, node, value):
         '''
         For nodes (variables) with unary constraints. 
+        True if it does not apply, or applies and succeeds, otherwise False
         1. If the unary does not apply to the node, return 0
         2. If the unary applies, return 1 if the constraint is satisfied,
            otherwise, return -1
         '''
-        result = 0
+        result = True
         if (node == 'B'):
             # B must be adjacent to the Road
             if (value == '13' or value == '23'):
-                result = 1
+                result = True
             else:
                 # otherwise it fails
-                result = -1
+                result = False
         if (node == 'A'):
             # A cannot be on a hill
             if (value == '12' or value == '21'):
-                result = -1
+                result = False
             else:
                 # otherwise it fails
-                result = 1
+                result = True
         if (node == 'D'):
             # D must me on a hill or adjacent to the road
             if ((value == '12' or value == '21') or 
                 (value == '13' or value == '23')):
-                result = 1
+                result = True
             else:
-                result = -1
+                result = False
         
         return result
+        
+    def checkAdjacentVariables(self, head, tail, assignments, 
+                               validValues, invalidValues):
+        # iterate through tail values (A or C) and check adjacent to B
+        tailValues = assignments[tail]
+        headValues = assignments[head]
+        for tailValue in tailValues:
+            foundValid = False
+            for headValue in headValues:
+                if (self.isAdjacent(tailValue, headValue)):
+                    validValues.append(tailValue)
+                    foundValid = True
+            # check if not B values were valid
+            if (not foundValid):
+                invalidValues.append(tailValue)
         
     def checkBinaryComplete(self, head, tail, assignments):
         '''
@@ -131,45 +147,58 @@ class HW2CampusConstraint(CSPConstraint):
 
         constraintCheck = False
         
-        def checkAdjacentVariables(head, tail, assignments, 
-                                   validValues, invalidValues):
-            # iterate through tail values (A or C) and check adjacent to B
-            tailValues = assignments[tail]
-            headValues = assignments[head]
-            for tailValue in tailValues:
-                foundValid = False
-                for headValue in headValues:
-                    if (self.isAdjacent(tailValue, headValue)):
-                        validValues.append(tailValue)
-                        foundValid = True
-                # check if not B values were valid
-                if (not foundValid):
-                    invalidValues.append(tailValue)
-                                       
         # The administration structure (A) and the classroom (C) must both be 
         # adjacent to the bus stop (B)
         # A->B, C->B, B->A, B->C
         constraintCheck = ((head == 'B' and (tail == 'A' or tail == 'C')) or
                            ((head == 'A' or head== 'C') and tail == 'B'))
         if (constraintCheck):                           
-          checkAdjacentVariables(head, tail, assignments, 
+          self.checkAdjacentVariables(head, tail, assignments, 
                                  validValues, invalidValues)
                     
         # The classroom  (C) must be adjacent to the dormitory (D)
         constraintCheck = ((head == 'C' and tail == 'D') or
                            (head == 'D' and tail == 'C'))
         if (constraintCheck):                           
-          checkAdjacentVariables(head, tail, assignments, 
+          self.checkAdjacentVariables(head, tail, assignments, 
                                  validValues, invalidValues)
                         
         return len(invalidValues) == 0
         
     def checkBinaryConsistent(self, head, headValue, tail, tailValue):
+        # check same position
+        if (headValue == tailValue):
+            return False
+
+        # adjacency checks            
+        constraintCheck = ((head == 'B' and (tail == 'A' or tail == 'C')) or
+                           ((head == 'A' or head== 'C') and tail == 'B'))
+        if (constraintCheck):                           
+            adjacent = self.isAdjacent(headValue, tailValue)
+            if (not adjacent):
+                return False
+            
+        # The classroom  (C) must be adjacent to the dormitory (D)            
+        constraintCheck = ((head == 'C' and tail == 'D') or
+                           (head == 'D' and tail == 'C'))
+        if (constraintCheck):                           
+            adjacent = self.isAdjacent(headValue, tailValue)
+            if (not adjacent):
+                return False
+            
+        # The admin structure (A) cannot be adjacent to the dormitory (D)            
+        constraintCheck = ((head == 'D' and tail == 'A') or
+                           (head == 'A' and tail == 'D'))
+        if (constraintCheck):                           
+            adjacent = self.isAdjacent(headValue, tailValue)
+            if (adjacent):
+                return False
+        
         # check
         return True
 
 rootNode = 'A'
-domain = cu.getMatrixDomain(size=3,zeroIndex=False)
+domain = cu.getMatrixDomain(size=(2,3),zeroIndex=False)
 colors = ['b','g','r','c','m','y']
 edges = [('A','B'),('A','C'),('A','D'),
          ('B','C'),('B','D'),

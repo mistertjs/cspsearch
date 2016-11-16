@@ -5,13 +5,15 @@ Utility functions for CSP program
 @author: Administrator
 """
 
-def getMatrixDomain(size=3, zeroIndex=False):
+def getMatrixDomain(size=(3,3), zeroIndex=False):
     '''
     Returns a matrix domain of either string or numeric fashion
     '''
     domain = []
-    for i in range(size):
-        for j in range(size):
+    rows = size[0]
+    cols = size[1]
+    for i in range(rows):
+        for j in range(cols):
             if (not zeroIndex):
                 domain.append(str(i+1)+str(j+1))
             else:
