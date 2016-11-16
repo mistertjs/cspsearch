@@ -42,13 +42,11 @@ shown below.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import networkx as nx
 rnd = np.random
-from aisearch import AISearch
 from cspbacktracking import CSPBacktracking
 from cspbacktracking import CSPConstraint
+from cspbacktracking import CSPAlgorithms
 import csputil as cu
 
 
@@ -63,25 +61,6 @@ class HW2QueensConstraint(CSPConstraint):
         '''
         return [float(value[0]),float(value[1])]
         
-    def checkBinaryComplete(self, head, tail, assignments):
-        # check rows
-        headValue = assignments[head]    
-        tailValue = assignments[tail]
-        hrow,hcol = self.getPositionsFromValue(headValue)
-        trow,tcol = self.getPositionsFromValue(tailValue)
-        
-        # check not similar row or column
-        if (hrow == trow):
-            return False
-        if (hcol == tcol):
-            return False
-        # not on a diagonal
-        if (abs(hrow-trow) == abs(hcol-tcol)):
-            return False
-        
-        return True
-        
-            
 
     def checkBinaryConsistent(self, head, headValue, tail, tailValue):
         hrow,hcol = self.getPositionsFromValue(headValue)
@@ -101,7 +80,7 @@ class HW2QueensConstraint(CSPConstraint):
 
 rootNode = 'Q1'
 # get four domain
-domain = cu.getMatrixDomain(size=4,zeroIndex=False)
+domain = cu.getMatrixDomain(size=(4,4),zeroIndex=False)
 colors = ['b','g','r','c','m','y']
 edges = [('Q1','Q2'),('Q1','Q3'),('Q1','Q4'),
          ('Q2','Q3'),('Q2','Q4'),
@@ -113,19 +92,17 @@ G.add_edges_from(edges)
 
 # get constraint
 constraint = HW2QueensConstraint()
-bk = CSPBacktracking(G, domain, rootNode='Q1', 
-                     cspConstraint=constraint)
+algorithms = CSPAlgorithms(filtering=CSPAlgorithms.FILTER_ARC_CONSISTENCY)
+bk = CSPBacktracking(G, domain, rootNode=rootNode, 
+                     cspConstraint=constraint,
+                     cspAlgorithm=algorithms)
 assignments = bk.backtrackingSearch(G)
 # print results and show graph
 if (assignments is not None):
     print "Successfully solved CSP!"
     print assignments
     # map colors
-    for node in G.nodes():
-        value = assignments[node]
-        colorIdx = domain.index(value)
-        color = colors[colorIdx]
-        G.node[node]['color'] = color
+    colors = cu.mapColorsToDomain(G, domain, colors)
     # plot
     bk.plotGraph(G, colors=colors)
 else:

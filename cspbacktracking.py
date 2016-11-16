@@ -392,7 +392,7 @@ class CSPBacktracking(AISearch):
                 # assignment and try again
                 print "Reassign values back to node ", node, value
                 # add value back to end of available values
-                self.removeAssignment(node, value)
+                # self.removeAssignment(node, value)
                 self.cspStats.incBacktrackingCnt()
                 # else, try next value
             else:
