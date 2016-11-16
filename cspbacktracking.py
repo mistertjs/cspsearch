@@ -366,6 +366,7 @@ class CSPBacktracking(AISearch):
                 # assign the value first
                 prvValues = copy.deepcopy(self.availableValues[node])
                 self.assignValueToNode(node, value)
+                print "Assigning node ",node," to value ",value
                 # then check consistency
                 if (self.isArcConsistent(G)):
                     # if consistent, recurse
@@ -426,17 +427,20 @@ class CSPBacktracking(AISearch):
         #print tail,"->",head
         removeValues = []
         for tailValue in self.availableValues[tail]:
-            # if any are consistent retain it
             retain = False
-            for headValue in self.availableValues[head]:
-                if (self.cspConstraint.checkBinaryConsistent(head,
-                                                             headValue,
-                                                             tail,
-                                                             tailValue)):
-                    # there is a consistent constraint, so retain and move on
-                    retain = True
-                    break
-                
+            # check unary constraint...if valid, check binary constraint
+            if (self.cspConstraint.checkUnary(tail, tailValue)):
+                # if any are consistent retain it
+                retain = False
+                for headValue in self.availableValues[head]:
+                    if (self.cspConstraint.checkBinaryConsistent(head,
+                                                                 headValue,
+                                                                 tail,
+                                                                 tailValue)):
+                        # there is a consistent constraint, so retain and move on
+                        retain = True
+                        break
+
             # add inconsistent value, and remove it after iteration
             if (not retain):
                 removeValues.append(tailValue)

@@ -42,13 +42,12 @@ shown below.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import networkx as nx
 rnd = np.random
 from aisearch import AISearch
 from cspbacktracking import CSPBacktracking
 from cspbacktracking import CSPConstraint
+from cspbacktracking import CSPAlgorithms
 import csputil as cu
 
 
@@ -181,9 +180,11 @@ G=nx.Graph()
 G.add_edges_from(edges)
 
 # get constraint
-constraint = None #HW2CampusConstraint(G)
+constraint = HW2CampusConstraint(G)
+algorithms = CSPAlgorithms(filtering=CSPAlgorithms.FILTER_ARC_CONSISTENCY)
 bk = CSPBacktracking(G, domain, rootNode='A', 
-                     cspConstraint=constraint)
+                     cspConstraint=constraint,
+                     cspAlgorithm=algorithms)
 assignments = bk.backtrackingSearch(G)
 # print results and show graph
 if (assignments is not None):
