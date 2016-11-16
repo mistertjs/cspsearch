@@ -22,7 +22,32 @@ import copy
 rnd = np.random
 from aisearch import AISearch
 from cspconstraint import CSPConstraint
-            
+
+ 
+'''
+###############################################################################
+'''
+
+class ValueInequality(CSPConstraint):
+    def checkUnary(self, node, value):
+        return True
+        
+    def checkBinaryComplete(self, head, tail, assignments):
+        headValue = assignments[head]
+        tailValue = assignments[tail]
+        # results should not be the same
+        return (headValue != tailValue)
+        
+    def checkBinaryConsistent(self, head, headValue, tail, tailValue):        
+        return (headValue != tailValue)
+        
+    def checkNnaryComplete(self, nodes, assignments):
+        return True
+        
+    def checkNnaryConsistent(self, nodes, assignments):
+        return True
+                
+                
 class CSPAlgorithms(object):
 
     # algorithm constants
@@ -85,18 +110,24 @@ class CSPAlgorithms(object):
         
 class CSPStats(object):
     def __init__(self):
-        self.assignmentCnt = 0
+        self.nodeAssignmentCnt = 0
         self.backtrackingCnt = 0
+        self.valueAssignmentCnt = 0
         
-    def incAssignmentCnt(self):
-        self.assignmentCnt += 1
+    def incNodeAssignmentCnt(self):
+        self.nodeAssignmentCnt += 1
 
     def incBacktrackingCnt(self):
         self.backtrackingCnt += 1
+
+    def incValueAssignmentCnt(self):
+        self.valueAssignmentCnt += 1
         
     def printStats(self):
-        print "CSPStats: assignments: %d, backtracks: %d" % \
-            (self.assignmentCnt,self.backtrackingCnt)
+        print "CSPStats: node assignments: %d, backtracks: %d," \
+              " value assignments: %d" % \
+            (self.nodeAssignmentCnt,self.backtrackingCnt,
+             self.valueAssignmentCnt)
             
 class CSPBacktracking(AISearch):
     '''
@@ -108,9 +139,8 @@ class CSPBacktracking(AISearch):
           constraints
     '''
     
-    def __init__(self, G, domain, rootNode, 
-                 cspAlgorithm=None,
-                 cspConstraint=None):
+    def __init__(self, G, domain, rootNode, cspConstraint=None,
+                 cspAlgorithm=None):
         self.G = G
         self.domain = domain
         self.rootNode = rootNode
@@ -130,19 +160,23 @@ class CSPBacktracking(AISearch):
                 self.availableValues[node] = copy.deepcopy(domain)
         
         # default constraint is 'inequality'
-        self.cspConstraint = cspConstraint
+        if (cspConstraint is None):
+            self.cspConstraint = ValueInequality()
+        else:
+            self.cspConstraint = cspConstraint
         
         # keep stats of various actions
         self.cspStats = CSPStats()
             
-        # assign this once, then reuse            
+        # assign this once, then reuse           
+        self.assignments = {}
         self.queue = None
 
     def printStats(self):
         self.cspStats.printStats()
         
     def getAlgorithm(self):
-        return cspAlgorithm
+        return self.cspAlgorithm
         
     def getFilteringType(self):
         if (self.cspAlgorithm is not None):
@@ -160,11 +194,6 @@ class CSPBacktracking(AISearch):
             return self.cspAlgorithm.getOrdering()
         return None
         
-    def isArcConsistent(self):
-        '''
-        Checks the current assignments for arc consistency
-        '''
-
     def solve(self):
         '''
         Primary interface for running the selected algorithm and solving
@@ -241,6 +270,30 @@ class CSPBacktracking(AISearch):
         return True
                 
     def selectUnassignedVariable(self, assignments, G):
+        '''
+        Find a node which is unassigned. 
+        1. For the defaul, its the first node which is not in the assignment 
+           list.
+        2. For ArcConsistency, it is the node with the least number of value
+           which have not already been assigned
+        '''
+        if (self.isFilterArcConsistency()):
+            # find the next value with the least number of assignments
+            minAssignments = 10000
+            minNode = None
+            for node in self.availableValues:
+                if (node not in assignments):
+                    valueList = self.availableValues[node]
+                    numAvailAssignments = len(valueList)
+                    if (numAvailAssignments < minAssignments):
+                        minAssignments = numAvailAssignments
+                        minNode = node
+            # check if any assignments are available
+            if (minNode is not None):
+                return minNode
+            else:
+                return None
+        
         # find next node not assigned                                          
         for node in self.queue:
             if (node not in assignments):
@@ -248,8 +301,21 @@ class CSPBacktracking(AISearch):
         return None
         
     def getNextValue(self, node, curValue):
+        '''
+        Return the next available value for this node
+        '''
         if (self.isFilterArcConsistency()):
-            return None
+            '''
+            Arc consistency returns whatever is available in the
+            availability list
+            '''
+            valueList = self.availableValues[node]
+            if (len(valueList) > 0):
+                # return the next in the list
+                value = valueList[0]
+                return value
+            else:
+                return None
             
         '''
         Default forward checking
@@ -265,8 +331,23 @@ class CSPBacktracking(AISearch):
             return self.domain[idx]
         else:
             return None
+
+    def assignValueToNode(self, node, value):
+        self.assignments[node] = value
+        # remove all entries except the selection
+        if (self.isFilterArcConsistency()):
+            values = copy.deepcopy(self.availableValues[node])
+            for v in values:
+                if (v != value):
+                    self.availableValues[node].remove(v)
+        # update stats
+        self.cspStats.incValueAssignmentCnt()
         
     def recursiveBacktracking(self, assignments, G):
+        '''
+        Main search function, recursing through the graph and enforcing
+        constraint consistency 
+        '''
         if (self.isAssignmentComplete(assignments, G)):
             return assignments
         
@@ -276,21 +357,39 @@ class CSPBacktracking(AISearch):
         if (node is None):
             return None
         else:
-            self.cspStats.incAssignmentCnt()
+            self.cspStats.incNodeAssignmentCnt()
         
-        # get next value in domain
+        # assign next value in domain
         value = self.getNextValue(node, None)
         while (value is not None):
-            if (self.isAssignmentConsistent(node, value, assignments, G)):
-                # add assignment
-                assignments[node] = value
-                # recurse to next node
-                assignmentsResults = self.recursiveBacktracking(assignments, G)
-                if (assignmentsResults is not None):
-                    return assignmentsResults
-                # remove the assignment and try again
-                assignments.pop(node)
-                self.cspStats.incBacktrackingCnt()
+            if (self.isFilterArcConsistency()):
+                # assign the value first
+                prvValues = copy.deepcopy(self.availableValues[node])
+                self.assignValueToNode(node, value)
+                # then check consistency
+                if (self.isArcConsistent(G)):
+                    # if consistent, recurse
+                    # recurse to next node
+                    assignmentsResults = self.recursiveBacktracking(assignments, G)
+                    if (assignmentsResults is not None):
+                        return assignmentsResults
+                    # if assignment from previous was bad, push back previous
+                    # assignment and try again
+                    print "Reassign values back to node ", node, prvValues
+                    self.availableValues[node] = prvValues
+                    self.cspStats.incBacktrackingCnt()
+                # else, try next value
+            else:
+                if (self.isAssignmentConsistent(node, value, assignments, G)):
+                    # add assignment
+                    self.assignValueToNode(node, value)
+                    # recurse to next node
+                    assignmentsResults = self.recursiveBacktracking(assignments, G)
+                    if (assignmentsResults is not None):
+                        return assignmentsResults
+                    # remove the assignment and try again
+                    assignments.pop(node)
+                    self.cspStats.incBacktrackingCnt()
                 
             # get next value
             value = self.getNextValue(node, value)
@@ -303,13 +402,13 @@ class CSPBacktracking(AISearch):
         the constructor.
         Return assignments if successful, otherwise None
         '''
-        assignments = {}
+        self.assignments = {}
     
         # get the queue as DFS
         self.queue = self.dfs_recurse(G, self.rootNode, 
                                       discovery=False, sort=True)
             # recurse and assign
-        assignmentsResults = self.recursiveBacktracking(assignments, G)
+        assignmentsResults = self.recursiveBacktracking(self.assignments, G)
     
         # assign to graph
         if (assignmentsResults is not None):
@@ -319,4 +418,62 @@ class CSPBacktracking(AISearch):
         # return assignment results..None if failure
         return assignmentsResults
         
+    def removeInconsistentValues(self, head, tail):
+        '''
+        Iterate through the tail and check which values are inconsitent.
+        Return True if any values were removed from the tail assignment
+        '''        
+        #print tail,"->",head
+        removeValues = []
+        for tailValue in self.availableValues[tail]:
+            # if any are consistent retain it
+            retain = False
+            for headValue in self.availableValues[head]:
+                if (self.cspConstraint.checkBinaryConsistent(head,
+                                                             headValue,
+                                                             tail,
+                                                             tailValue)):
+                    # there is a consistent constraint, so retain and move on
+                    retain = True
+                    break
+                
+            # add inconsistent value, and remove it after iteration
+            if (not retain):
+                removeValues.append(tailValue)
  
+        # remove values from available assignments
+        for value in removeValues:
+            self.availableValues[tail].remove(value)
+
+        # if any values were removed return true
+        if (len(removeValues) > 0):
+            print "Removing from node ", tail, removeValues
+            return True
+        else:
+            return False
+             
+    def isArcConsistent(self, G, maxIterations=-1):
+        '''
+        Arc consist of (tail -> head) configuration
+        '''
+        iterCnt = 0
+        masterArcQ = self.getBidirectionalArcs(G)
+        arcQueue = self.getBidirectionalArcs(G)
+        while (len(arcQueue) > 0):
+            edge = arcQueue.pop(0)
+            head = edge[1]
+            tail = edge[0]
+            if (self.removeInconsistentValues(head, tail)):
+                 # the tail was modified, so add all arcs to the queue
+                 # where the tail is now the head
+                for arc in masterArcQ:
+                    if (arc[1] == tail and arc not in arcQueue):
+                        arcQueue.append(arc)
+            # if the loop never ends, stop it
+            iterCnt += 1
+            if (maxIterations >= 0 and iterCnt >= maxIterations):
+                return False
+
+        return True
+
+  

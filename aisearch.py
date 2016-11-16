@@ -205,3 +205,16 @@ class AISearch(object):
             self.bfs_recurse(G, neighbor, stack, discovery)
     
         return stack        
+
+    def getBidirectionalArcs(self, G):
+        '''
+        Returns each arc and its opposite companion
+        '''
+        queue = []
+        for node in G.nodes():
+            for neighbor in G.neighbors(node):
+                queue.append((node,neighbor)) 
+                if (G.is_directed()):
+                    # if the graph is directed, add the reverse arc
+                    queue.append((neighbor,node)) 
+        return queue
