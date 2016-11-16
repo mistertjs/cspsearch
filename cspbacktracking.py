@@ -286,28 +286,11 @@ class CSPBacktracking(AISearch):
         Find a node which is unassigned. 
         1. For the defaul, its the first node which is not in the assignment 
            list.
-        2. For ArcConsistency, it is the node with the least number of value
-           which have not already been assigned
+        2. If ordering MLV is defined, it is the node with the least 
+            number of value  which have not already been assigned
         '''
-        '''
-        if (self.isFilterArcConsistency()):
-            # find the next value with the least number of assignments
-            minAssignments = 10000
-            minNode = None
-            for node in self.availableValues:
-                if (node not in assignments):
-                    valueList = self.availableValues[node]
-                    numAvailAssignments = len(valueList)
-                    if (numAvailAssignments < minAssignments):
-                        minAssignments = numAvailAssignments
-                        minNode = node
-            # check if any assignments are available
-            if (minNode is not None):
-                return minNode
-            else:
-                return None
-        '''
-        # find next node not assigned                                          
+
+        # find next node not assigned 
         for node in self.queue:
             if (node not in assignments):
                 return node

@@ -134,38 +134,10 @@ class HW2CampusConstraint(CSPConstraint):
             if (not foundValid):
                 invalidValues.append(tailValue)
         
-    def checkBinaryComplete(self, head, tail, assignments):
-        '''
-        Checks all values of tail assignments relative to the head. All valid
-        assignments will go into the validValue list. All invalid values go
-        into the invalidValues. Check of validitiy can be done by checking
-        the length of either list
-        '''
-        
-        validValues = []
-        invalidValues = []
-
-        constraintCheck = False
-        
-        # The administration structure (A) and the classroom (C) must both be 
-        # adjacent to the bus stop (B)
-        # A->B, C->B, B->A, B->C
-        constraintCheck = ((head == 'B' and (tail == 'A' or tail == 'C')) or
-                           ((head == 'A' or head== 'C') and tail == 'B'))
-        if (constraintCheck):                           
-          self.checkAdjacentVariables(head, tail, assignments, 
-                                 validValues, invalidValues)
-                    
-        # The classroom  (C) must be adjacent to the dormitory (D)
-        constraintCheck = ((head == 'C' and tail == 'D') or
-                           (head == 'D' and tail == 'C'))
-        if (constraintCheck):                           
-          self.checkAdjacentVariables(head, tail, assignments, 
-                                 validValues, invalidValues)
-                        
-        return len(invalidValues) == 0
-        
     def checkBinaryConsistent(self, head, headValue, tail, tailValue):
+        '''
+        Checks all binary assignments
+        '''
         # check same position
         if (headValue == tailValue):
             return False
