@@ -375,6 +375,8 @@ class CSPBacktracking(AISearch):
                 self.assignValueToNode(node, value)
                 print "Assigning node ",node," to value ",value
 
+                # save a copy of the available values to reinstate if there
+                # is backtracking failure
                 availableValueBackup = copy.deepcopy(self.availableValues)
 
                 # then check consistency
@@ -390,12 +392,14 @@ class CSPBacktracking(AISearch):
                 # redo the values
                 self.availableValues = availableValueBackup
                 # assignment and try again
-                print "Reassign values back to node ", node, value
+                print "Reinstating available values from backtrack failure " +\
+                      "from node/value ", node, value
                 # add value back to end of available values
                 # self.removeAssignment(node, value)
                 self.cspStats.incBacktrackingCnt()
                 # else, try next value
             else:
+                # attempt forward check before the assignment
                 if (self.isAssignmentConsistent(node, value, assignments, G)):
                     # add assignment
                     self.assignValueToNode(node, value)

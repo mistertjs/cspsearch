@@ -2,41 +2,10 @@
 """
 Created on Sun Nov 13 10:13:11 2016
 
-CSPs Homework 2: hw2_csps_q1_campus_layout
+CSPs Homework 2: hw2_csps_q3_four_queens
 
-This uses a Constraint object to check constraints which have:
-1-Consistency: unary constraints (single node constraint)
-2-Consistency: binary constraints (pair of node constraints)
-K-Consistency: n-nary constraints (k-node constraints)
-
-You are asked to determine the layout of a new, small college. 
-The campus will have four structures: 
-(A) An administration structure
-(B) A bus stop
-(C) A classroom
-(D) A dormitory (D). 
-
-The layout must satisfy the following constraints:
-
-1. The bus stop (B) must be adjacent to the road.
-2. The administration structure (A) and the classroom (C) must both be adjacent 
-   to the bus stop (B).
-3. The classroom (C) must be adjacent to the dormitory (D).
-4. The administration structure (A) must not be adjacent to the dormitory (D).
-5. The administration structure (A) must not be on a hill.
-6. The dormitory (D) must be on a hill or adjacent to the road.
-7. All structures must be in different grid squares.
-8. Here, adjacent means that the structures must share a grid edge, not just a 
-   corner.
-
-Campus Layout:
-Each structure (including the bus stop) must be placed somewhere on the grid 
-shown below.
-------------------------------------||
-|      (1,1)| hill (1,2)|      (1,3)||
-------------------------------------||Road
-| hill (2,1)|      (2,2)|      (2,3)||
-------------------------------------||
+https://courses.edx.org/courses/BerkeleyX/CS188x_1/1T2013/courseware/5fab202f219447c79915d6ba6eb08344/0460a6606a3e4630b0b4e913dd88c135/
+This is four queens using AC, not min-conflicts
 
 @author: Administrator
 """
